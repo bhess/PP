@@ -1,0 +1,40 @@
+package simulation.entities;
+
+/**
+ * @author bhess
+ *
+ * Objects of this class represent a Retailer
+ * This means an entity that receives goods
+ * but doesn't redistribute them. The goods are selled for
+ * example to end-customers.
+ */
+public class Retailer extends Recipient {
+
+	/**
+	 * Inizializing with name, random seed and misread probability
+	 */
+	public void init(String name, long randSeed, float misreadProb, long timeToPOS, long timeToPOSStd) {
+		super.init(name, randSeed, misreadProb);
+		this.timeToPOS = timeToPOS;
+		this.timeToPOSStd = timeToPOSStd;
+		//System.out.println(timeToPOS + " " + timeToPOSStd);
+	}
+	
+	/*
+	 * Time from arriving to a Retailer to its point of sale
+	 */
+	public long timeToPOS;
+	
+	/*
+	 * Standard deviation of timeToPOS
+	 */
+	public long timeToPOSStd;
+	
+	/* (non-Javadoc)
+	 * @see simulation.entities.Partner#getType()
+	 */
+	public int getType() {
+		return RETAILER;
+	}
+	
+}

@@ -1,0 +1,94 @@
+/**
+ * 
+ */
+package clonedetection.classification;
+
+import simulation.utilities.Binomial;
+import clonedetection.results.Results;
+
+/**
+ * @author bhess
+ * 
+ * Classifies genuine and counterfeits using a Likelihood ratio test
+ *
+ */
+public class LikelikoodRatioResults implements CloneClassification {
+
+	private static String TYPE = "LikelihoodRatio";
+	
+	
+	/* (non-Javadoc)
+	 * @see clonedetection.classification.CloneClassification#getName()
+	 */
+	@Override
+	public String getName() {
+		return TYPE;
+	}
+
+	/* (non-Javadoc)
+	 * @see clonedetection.classification.CloneClassification#isClone(double[], float, clonedetection.results.Results)
+	 */
+	@Override
+	public double isClone(float pmr, Results result) {
+		boolean[] results = result.getCheckedResults().results;
+		int failed = 0;
+		for (int i = 0; i < results.length; ++i) {
+			if (!results[i]) {
+				failed++;
+			}
+		}
+		int originalTraceLength = result.trace.length + failed;
+		double mlEstimator = (double)failed / (double)originalTraceLength;
+		double mlProb = new Binomial(originalTraceLength, mlEstimator).getProb(failed);
+		double pmrProb = new Binomial(originalTraceLength, pmr).getProb(failed);
+		double ratio = Math.log10(mlProb / pmrProb);
+		if (ratio < min) min = ratio;
+		if (ratio > max) max = ratio;
+		return ratio;
+	}
+
+	/* (non-Javadoc)
+	 * @see clonedetection.classification.CloneClassification#getMaxThreshold()
+	 */
+	@Override
+	public double getMaxThreshold() {
+		// TODO Auto-generated method stub
+		return max;
+	}
+
+	/* (non-Javadoc)
+	 * @see clonedetection.classification.CloneClassification#getMinThreshold()
+	 */
+	@Override
+	public double getMinThreshold() {
+		// TODO Auto-generated method stub
+		return min;
+	}
+
+	/* (non-Javadoc)
+	 * @see clonedetection.classification.CloneClassification#getMode()
+	 */
+	@Override
+	public int getMode() {
+		// TODO Auto-generated method stub
+		return LESS_OR_EQUAL;
+	}
+
+	/* (non-Javadoc)
+	 * @see clonedetection.classification.CloneClassification#isClone(double, double)
+	 */
+	@Override
+	public boolean isClone(double threshold, double isClone) {
+		return threshold <= isClone;
+	}
+	
+	/*
+	 * current minimal and maximal value
+	 * 
+	 * initialized as maximum possible (for min) and minimal
+	 * possible value (for max)
+	 */
+	private double min = Double.MAX_VALUE, max = Double.MIN_VALUE;
+
+
+}

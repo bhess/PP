@@ -1,0 +1,235 @@
+package simulation.entities;
+
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.LinkedList;
+import java.util.List;
+import java.sql.Time;
+
+import simulation.OUTEvent;
+import simulation.Product;
+import simulation.utilities.MathTools;
+
+
+/**
+ * 
+ * @author Basil Hess
+ * 
+ * Objects of this class represents a Distributor
+ * partner.
+ * 
+ * This means an entity which ships some products to some
+ * partners.
+ */
+public abstract class Distributor extends Recipient {
+	
+	/**
+	 * Initialization
+	 * @param name
+	 * Name of the Distributor
+	 * @param numberOfChannels
+	 * Number of Channels from this Distributor (number of partners)
+	 * @param randSeed
+	 * random seed
+	 * @param misreadProb
+	 * Misread probability
+	 * @param iolt
+	 * IN-OUT lead time in seconds
+	 * @param ioltStd
+	 * Standard deviation for the IN-OUT lead time
+	 */
+	protected void init(String name, int numberOfChannels, long randSeed, float misreadProb,
+			long iolt, long ioltStd) {
+		super.init(name, randSeed, misreadProb);
+		outChannels = new ArrayList<DirectedChannel>(numberOfChannels);
+		shippingInstants = new LinkedList<Time>();
+		// this.eaveOUT = eaveOUT;
+		this.iolt = iolt;
+		this.ioltStd = ioltStd;
+	}
+	
+	/**
+	 * Constructor without eavesdropped in-events
+	 * 
+	 * @param numberOfChannels
+	 * @param randSeed
+	 * @param eaveOUT
+	 */
+	protected void init(String name, int numberOfChannels, long randSeed, float misreadProb) {
+		super.init(name, randSeed, misreadProb);
+		outChannels = new ArrayList<DirectedChannel>(numberOfChannels);
+		shippingInstants = new LinkedList<Time>();
+		// this.eaveOUT = eaveOUT;
+	}
+	
+	
+	/**
+	 * Ships all products in queue
+	 */
+	public void shipAllProducts() {
+		for (Product p = productQueue.peek(); p == null; p = productQueue.peek()) {
+			shipProduct(p);
+		}
+	}
+	
+	/**
+	 * Ships one product in queue
+	 */
+	public Recipient shipProduct() {
+		Product p = productQueue.poll();
+		if (p != null) {
+			return shipProduct(p);
+		} else {
+			return null;
+		}
+	}
+	
+	/**
+	 * Ships a specific product according to a probability
+	 * distribution over a distribution channel
+	 * 
+	 * @param p Product to be shipped
+	 */
+	public Recipient shipProduct(Product p) {
+		double rv = random.nextDouble();
+		double init = 0.0;
+		for (DirectedChannel d : outChannels) {
+			init += d.load;
+			if (rv < init) {
+				return shipProduct(p, d);
+				
+			}
+		}
+		return null;
+	}
+	
+	/**
+	 * ships a Product over the specified distribution
+	 * channel
+	 * 
+	 * @param p Product to be shipped
+	 * @param d Distribution channel
+	 */
+	public Recipient shipProduct(Product p, DirectedChannel d) {
+		addINOUT(p.currentDate);
+		setNextShippingInstant(p.currentDate);
+		
+		d.setProduct(p);
+		setChanged();
+		notifyObservers(new OUTEvent(this, d));
+		
+		return d.deliver();
+		
+	}
+	
+	/**
+	 * Adding a shipping instant to the distributor
+	 * @param t
+	 * Time in the day for the shipping instant
+	 */
+	public void addShippingInstant(Time t) {
+		shippingInstants.add(t);
+	}
+	
+	/**
+	 * Adding a Out-Channel to distrubutor
+	 * @param d
+	 * the channel object that will be added
+	 */
+	public void addChannel(DirectedChannel d) {
+		outChannels.add(d);
+	}
+	
+	/**
+	 * Remove a outChannel from this distributor
+	 * @param d
+	 * the channel that will be removed
+	 */
+	public void removeChannel(DirectedChannel d) {
+		outChannels.remove(d);
+	}
+	
+	/**
+	 * Adds the time the product is on stock
+	 * (in-out delay)
+	 * 
+	 * @param now
+	 */
+	protected void addINOUT(Calendar now) {
+		int gauss = (int)(MathTools.nextGaussian(iolt, ioltStd));
+		now.add(Calendar.SECOND, (gauss > 0 ? gauss : 1));
+	}
+	
+	/**
+	 * Checks which is the next shipping instant and
+	 * sets the input Calendar according to it
+	 * 
+	 * @param now
+	 */
+	public void setNextShippingInstant(Calendar now) {
+		long nowlong = now.get(Calendar.HOUR_OF_DAY)*60*60 + now.get(Calendar.MINUTE)*60 +
+			now.get(Calendar.SECOND);
+		long diff = Long.MAX_VALUE;
+		int instHour = 0, instMin = 0, instSec = 0;
+		boolean dayafter = false;
+		for (Time t : shippingInstants) {
+			boolean tmpdayafter = false;
+			long instlong = t.getHours()*60*60 + t.getMinutes()*60 + t.getSeconds();
+			if (instlong < nowlong) {
+				tmpdayafter = true;
+				instlong += 24*60*60;
+			}
+			long tmpdiff = instlong - nowlong;
+			if (tmpdiff < diff) {
+				diff = tmpdiff;
+				dayafter = tmpdayafter;
+				instHour = t.getHours();
+				instMin = t.getMinutes();
+				instSec = t.getSeconds();
+			}
+		}
+		if (dayafter) {
+			now.add(Calendar.DAY_OF_MONTH, 1);
+		}
+		now.set(Calendar.HOUR_OF_DAY, instHour);
+		now.set(Calendar.MINUTE, instMin);
+		now.set(Calendar.SECOND, instSec);
+	}
+	
+	public ArrayList<DirectedChannel> outChannels;
+	
+	/**
+	 * -----------------------------------------------------------------
+	 * 
+	 * Characteristic Parameters of a Distributor
+	 * 
+	 */
+	
+	/*
+	 * IN-OUT Time
+	 * Time that's needed to move from Stock to ready-to-ship
+	 */
+	public long iolt;
+	
+	/*
+	 * Standard derivation of the IN-OUT lead time
+	 */
+	public long ioltStd;
+	
+	/*
+	 * List of shipping Times during a day
+	 */
+	public List<Time> shippingInstants;
+	
+	/*
+	 * Percentage of eavesdropped OUT-events
+	 */
+	@Deprecated
+	public float eaveOUT;
+	
+	
+	/**
+	 * ----------------------------------------------------------------- 
+	 */
+
+}

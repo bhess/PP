@@ -1,0 +1,139 @@
+package simulation.data;
+
+import java.util.Calendar;
+import java.util.GregorianCalendar;
+import java.util.LinkedList;
+import java.util.List;
+
+import simulation.entities.DirectedChannel;
+import simulation.entities.Manufacturer;
+import simulation.entities.Partner;
+import simulation.entities.Recipient;
+import simulation.entities.Retailer;
+import simulation.entities.Wholesaler;
+import simulation.utilities.Logging;
+
+
+/**
+ * @author bhess
+ * 
+ * Objects of this class represent a configuration for a Supply Chain
+ *
+ */
+public class Configuration {
+	
+	/**
+	 * Initializing - Taking current date as start date for the configuration
+	 */
+	public Configuration() {
+		startDate = GregorianCalendar.getInstance();
+		init();
+	}
+	
+	/**
+	 * Initializing - Taking a start data as the input for the configuration
+	 * @param year
+	 * @param month
+	 * @param dom
+	 * @param hour
+	 * @param minute
+	 * @param second
+	 */
+	public Configuration(int year, int month, int dom, int hour, int minute, int second) {
+		startDate = new GregorianCalendar(year, month, dom, hour, minute, second);
+	}
+	
+	/**
+	 * Initializes the Manufacturer and Partner list.
+	 */
+	private void init() {
+		manufacturers = new LinkedList<Manufacturer>();
+		partners = new LinkedList<Recipient>();
+	}
+	/*
+	 * Starting date of this Configuration
+	 */
+	public Calendar startDate;
+	
+	/*
+	 * Running time in Seconds for this configuration 
+	 */
+	public int runningTime;
+	
+	/*
+	 * List of manufacturing Entities
+	 */
+	public List<Manufacturer> manufacturers;
+	
+	/*
+	 * List of all Partners (including entities)
+	 */
+	public List<Recipient> partners;
+	
+	/**
+	 * The global Misread rate (if there is one)
+	 */
+	public float globalPmr;
+	
+	/**
+	 * Prints configuration to STDOUT
+	 */
+	public void printConfig() {
+		
+		Logging.log.info("Start Date: " + startDate.getTime().toString());
+		Logging.log.info("Running Time: " + runningTime);
+		
+		for (Partner p : partners) {
+			Logging.log.info("-----------------------------------------------");
+			if (p instanceof Manufacturer) {
+				printManufacturer((Manufacturer)p);
+			} else if (p instanceof Wholesaler) {
+				printWholesaler((Wholesaler)p);
+			} else if (p instanceof Retailer) {
+				printRetailer((Retailer)p);
+			}
+			Logging.log.info("-----------------------------------------------");
+		}
+		
+	}
+	private void printManufacturer(Manufacturer m) {
+		Logging.log.info("Type: Manufacturer. Name: " + m.getName());
+		Logging.log.info("Misread prob: " + m.getMisreadProb());
+		//Logging.log.info("Pr eaves OUT: " + m.eaveOUT);
+		Logging.log.info("Production rate: " + m.productionRate + "/d");
+		Logging.log.info("Production end: " + m.productionEnd.getTime().toString());
+		Logging.log.info("Reuse ID Prob: " + m.reuseID);
+		for (java.sql.Time t : m.shippingInstants) {
+			Logging.log.info("Shipping instant: " + t.toString());
+		}
+		for (DirectedChannel d : m.outChannels) {
+			Logging.log.info(d.toString());
+		}
+	}
+	private void printWholesaler(Wholesaler w) {
+		Logging.log.info("Type: Wholesaler. Name: " + w.getName());
+		Logging.log.info("Misread prob: " + w.getMisreadProb());
+		//Logging.log.info("Pr eaves IN " + w.eaveIN + ", Pr eaves OUT: " + w.eaveOUT);
+		Logging.log.info("In-Out lead time: " + w.iolt + "s, std: " + w.ioltStd + "s");
+		for (java.sql.Time t : w.shippingInstants) {
+			Logging.log.info("Shipping instant: " + t.toString());
+		}
+		for (DirectedChannel d : w.outChannels) {
+			Logging.log.info(d.toString());
+		}
+	}
+	private void printRetailer(Retailer r) {
+		Logging.log.info("Type: Retailer. Name: " + r.getName());
+		Logging.log.info("Misread prob: " + r.getMisreadProb());
+		//Logging.log.info("Pr eaves IN " + r.eaveIN);
+	}
+	
+	/*
+	 * Getting the configuration of the next slot
+	 * Terminates by `null`
+	 * TODO implement in order to allow more than one slot...
+	 */
+	public Configuration getNextConfiguration() {
+		return null;
+	}
+}

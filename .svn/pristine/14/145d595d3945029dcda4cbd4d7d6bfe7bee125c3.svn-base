@@ -1,0 +1,33 @@
+package simulation.entities;
+
+/**
+ * 
+ * @author bhess
+ * 
+ * Interface that specifies a generic partner
+ *
+ */
+public interface Partner {
+	
+	public static final int MANUFACTURER = 1, WHOLESALER = 2, RETAILER = 3;
+	/**
+	 * Receiving a product through a channel
+	 * @param d
+	 * The channel where the product is reveived
+	 */
+	public void receiveProduct(DirectedChannel d);
+	
+	/**
+	 * Name of the partner
+	 * @return
+	 */
+	public String getName();
+	
+	/**
+	 * Type of the partner (e.g. manufacturer..)
+	 * 1: Manufacturer, 2: Wholesaler, 3: Retailer 
+	 * @return
+	 */
+	public int getType();
+	
+}

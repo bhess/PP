@@ -1,0 +1,141 @@
+package simulation.entities;
+
+import java.util.Calendar;
+
+import simulation.Product;
+import simulation.utilities.MathTools;
+
+
+/**
+ * 
+ * @author Basil Hess
+ * 
+ * Directed Channel from `source` to `destination` with
+ * a relative output load
+ * 
+ */
+public class DirectedChannel {
+	
+	/**
+	 * Initializing a Directed channel from One partner to another
+	 * @param source
+	 * Source partner
+	 * @param destination
+	 * Destination partner
+	 * @param load
+	 * Load from source to destination,
+	 *  loads of all channels from source should sum to 1
+	 * @param oilt
+	 * Out-In lead time
+	 * @param oiltStd
+	 * oilt standard deviation
+	 * @param eavesSource
+	 * Eavesdropping rate at source
+	 * @param eavesDestination
+	 * Eavesdropping rate at destination
+	 * @param eavesSourceOffset
+	 * Offset in seconds when the tags are eavesdropped 
+	 * starting at the source
+	 * @param eavesDestinationOffset
+	 * Offset in seconds when the tags are eavesdropped
+	 * before reaching the destination partner
+	 */
+	public DirectedChannel(Distributor source, Recipient destination, double load, long oilt,
+			long oiltStd, float eavesSource, float eavesDestination, long eavesSourceOffset, long eavesDestinationOffset) {
+		this.source = source;
+		this.desitination = destination;
+		this.load = load;
+		this.oilt = oilt;
+		this.oiltStd = oiltStd;
+		this.eavesSource = eavesSource;
+		this.eavesDestination = eavesDestination;
+	}
+	
+	/**
+	 * Delivers the product over the channel to its destination,
+	 * respecting the channel delay
+	 * 
+	 * returns null if no product is on the channel
+	 * 
+	 * @param p
+	 */
+	public Recipient deliver() {
+		//System.out.println(p.currentDate.getTime().toString());
+		if (product == null) return null;
+		int gauss = (int)(MathTools.nextGaussian(oilt, oiltStd));
+		product.currentDate.add(Calendar.SECOND, (gauss > 0 ? gauss : 1));
+		desitination.receiveProduct(this);
+		return desitination;
+	}
+	
+	/*
+	 * Returns the product on this channel
+	 * if channel is empty -> return null
+	 */
+	public Product getProduct() {
+		return product;
+	}
+	
+	/*
+	 * Sets a product to the channel.
+	 * SHALL be called BEFORE deliver!
+	 */
+	public void setProduct(Product p) {
+		this.product = p;
+	}
+	private Product product;
+	
+	/**
+	 * Source of channel
+	 */
+	public Distributor source;
+	
+	/*
+	 * Eavesdrop-rate at source
+	 * \in [0,1]
+	 */
+	public float eavesSource;
+	
+	/*
+	 * Time in sec after which eavesdropping happens (< oilt)
+	 */
+	public long eavesSourceOffset;
+	
+	/**
+	 * Destination of channel
+	 */
+	public Recipient desitination;
+	
+	/*
+	 * Eavesdrop-rate at destination
+	 * \in [0,1]
+	 */
+	public float eavesDestination;
+	
+	/*
+	 * Time in seconds before where eavesdropping happens (> -oilt)
+	 * must be a negative value
+	 */
+	public long eavesDestinationOffset;
+	
+	/**
+	 * Relative output load from `source`
+	 * -> all loads should sum to 1
+	 */
+	public double load;
+	
+	/**
+	 * Delay over Channel (OUT-IN time)
+	 */
+	public long oilt;
+	
+	/*
+	 * Standard derivation of OUT-IN lead time
+	 */
+	public long oiltStd;
+	
+	public String toString() {
+		return "from " + source.getName() + " to " + desitination.getName() 
+			+ ": load=" + load + ", OILT=" + oilt + "s std: " + oiltStd + "s, EIDsrc=" + eavesSource + ", EIDdrs=" + eavesDestination;
+	}
+}

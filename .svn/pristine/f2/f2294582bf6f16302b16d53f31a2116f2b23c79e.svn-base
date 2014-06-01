@@ -1,0 +1,20 @@
+package simulation.data;
+
+
+/**
+ * @author bhess
+ * 
+ * Interface used to implement ways of getting the Configurations
+ */
+public interface ConfigurationSource {
+
+	/**
+	 * Gets the Configuration using a way specifyed by the 
+	 * concrete implementations
+	 * @return
+	 * A Configuration object
+	 * @throws Exception
+	 * If something goes wrong (e.g. reading config-file, parsing...)
+	 */
+	public Configuration getConfiguration() throws Exception;
+}

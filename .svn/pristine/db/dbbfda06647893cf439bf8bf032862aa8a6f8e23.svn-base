@@ -1,0 +1,272 @@
+/**
+ * 
+ */
+package clonedetection.classification;
+
+import java.util.BitSet;
+import java.util.HashMap;
+import java.util.HashSet;
+
+import clonedetection.results.CheckedResults;
+import clonedetection.results.Results;
+import simulation.utilities.Binomial;
+import simulation.utilities.Combination;
+
+/**
+ * @author bhess
+ * 
+ * Classifies genuine and counterfeits using a Binomial test
+ * Null hypothesis is that failed rules come from misreads
+ * depending on the significance value (threshold here),
+ * the null hypothesis is either accepted (-> genuine) or
+ * rejected (-> clone)
+ *
+ * Using the verified rules from the trace, the original trace length
+ * is reconstructed as
+ * original trace length = 'given trace length' + failed rules
+ * 
+ */
+public class CombinatorialDependentBinomialTest implements CloneClassification {
+
+	private static final String TYPE = "CombinatorialEventDependentBinomialTest"; 
+	
+	private static int GEN_NEXT = 0, GEN_TERM = 1, GEN_EMPTY = 2, GEN_ERROR = 3;
+
+	/* (non-Javadoc)
+	 * @see clonedetection.CloneClassification#isClone(double[], boolean[])
+	 */
+	@Override
+	public double isClone(float pmr, Results result) {
+		CheckedResults cr = result.getCheckedResults();
+
+		int[] tmp = cr.getFailedArray();
+		int failes1 = tmp[1], failes2 = tmp[2], failes3 = tmp[3];
+		int failed = cr.getFailed();
+		int originalTraceLength = cr.getOriginalTraceLength();
+		
+		
+		double prob = getProb(originalTraceLength, pmr, failes1, failes2,
+				failes3, failed);
+		if (prob < min) min = prob;
+		if (prob > max) max = prob;
+		return prob;
+	}
+	
+	private double min = Double.MAX_VALUE, max = Double.MIN_VALUE;
+	
+	private StoreTree storeTree = new StoreTree();
+	
+	private double getProb(int originalTraceLength, float p, int failes1tmp, int failes2,
+			int failes3, int failed) {
+		int combinationK = failes1tmp + failes2 + failes3;
+		int combinationN = originalTraceLength - failed + combinationK;
+		
+		// special case if no failures are found then probability is 0
+		if (combinationK == 0) return 1d;
+		Binomial bin = new Binomial(originalTraceLength, p);
+		double prob = 0d;
+		for (int failes1 = failes1tmp; failed-failes1tmp+failes1 < originalTraceLength; ++failes1, ++combinationK) {
+			
+			// see if an entry already exists for the setup.. not recomputing it again
+			int binom = storeTree.get(originalTraceLength, failes1, failes2, failes3);
+			if (binom == -1) {
+				// entry doesn't already exist
+				binom = 1;
+				// first check for a special case when k=0, then there's 1 possibility
+				if (combinationK > 0) {
+					// do the whole computation
+					HashSet<BitSet> hs = new HashSet<BitSet>();
+					try {
+						for (Combination cc = new Combination(combinationN,
+								combinationK); cc != null; cc = cc.Successor()) {
+							int[] places = getPlaces(failes1, failes2, failes3);
+							do {
+								hs
+										.add(cc.toBitSet(places,
+												originalTraceLength));
+							} while (gen_perm_rep_next(places, combinationK) == GEN_NEXT);
+						}
+					} catch (Exception e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+						System.exit(1);
+					}
+					binom = hs.size();
+					storeTree.put(originalTraceLength, failes1, failes2,
+							failes3, binom);
+				}
+			}
+			prob += bin.getProb(failed - failes1tmp + failes1, binom);
+		}
+		return prob;
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see clonedetection.classification.CloneClassification#getMaxThreshold()
+	 */
+	@Override
+	public double getMaxThreshold() {
+		return max;
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see clonedetection.classification.CloneClassification#getMinThreshold()
+	 */
+	@Override
+	public double getMinThreshold() {
+		return min;
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see clonedetection.classification.CloneClassification#getMode()
+	 */
+	@Override
+	public int getMode() {
+		return GREATER_OR_EQUAL;
+	}
+
+	/* (non-Javadoc)
+	 * @see clonedetection.classification.CloneClassification#isClone(double, double)
+	 */
+	@Override
+	public boolean isClone(double threshold, double isClone) {
+		return threshold >= isClone;
+	}
+	
+	/* (non-Javadoc)
+	 * @see clonedetection.CloneClassification#getName()
+	 */
+	@Override
+	public String getName() {
+		return TYPE;
+	}
+	
+	/**
+	 * Lists permutations without repetitions
+	 * e.g {1,1,2}
+	 * -> {1,1,2}
+	 * -> {1,2,1}
+	 * -> {2,1,1}
+	 * 
+	 * Algorithm taken and transcribed from C from:
+	 * http://www.aconnect.de/friends/editions/comp/combinatoricode_e.htm
+	 * @param vector
+	 * @param n
+	 * @return
+	 */
+	private int gen_perm_rep_next(int[] vector, int n) {
+		int j = n - 2; // index
+		int i = n - 1; // help index
+		int temp; // auxiliary element
+
+		// find rightmost element to increase
+		while (j >= 0 && vector[j + 1] <= vector[j])
+			j--;
+
+		// terminate if all elements are in decreasing order
+		if (j < 0)
+			return (GEN_TERM);
+
+		// find i
+		while (vector[i] <= vector[j])
+			i--;
+
+		// increase (swap)
+		temp = vector[j];
+		vector[j] = vector[i];
+		vector[i] = temp;
+
+		// reverse right-hand elements
+		for (j += 1, i = n - 1; j < i; j++, i--) {
+			temp = vector[j];
+			vector[j] = vector[i];
+			vector[i] = temp;
+		}
+
+		return (GEN_NEXT);
+	}
+	
+	private int[] getPlaces(int f1, int f2, int f3) {
+		int[] res = new int[f1 + f2 + f3];
+		int count = 0;
+		for (int i = 0; i < f1; ++i) {
+			res[count++] = 1;
+		}
+		for (int i = 0; i < f2; ++i) {
+			res[count++] = 2;
+		}
+		for (int i = 0; i < f3; ++i) {
+			res[count++] = 3;
+		}
+		return res;
+	}
+	
+	class StoreTree {
+		public StoreTree() {
+			root = new StoreTreeNode(ROOTLEVEL);
+		}
+
+		StoreTreeNode root;
+
+		void put(int n, int l1, int l2, int l3, int value) {
+			root.getAndMakeChild(n, 0).getAndMakeChild(l1, 0).getAndMakeChild(l2, 0)
+					.getAndMakeChild(l3, value);
+		}
+		
+		int get(int n, int l1, int l2, int l3) {
+			StoreTreeNode s = root.getChild(n);
+			if (s == null) return -1;
+			s = s.getChild(l1);
+			if (s == null) return -1;
+			s = s.getChild(l2);
+			if (s == null) return -1;
+			s = s.getChild(l3);
+			if (s == null) return -1;
+			else return s.getValue();
+		}
+		
+	}
+
+	static short ROOTLEVEL = 0, NLEVEL = 1, L1LEVEL = 2, L2LEVEL = 3,
+			L3LEVEL = 4;
+
+	class StoreTreeNode {
+
+		public StoreTreeNode(int level) {
+			this.level = level;
+			if (level != L3LEVEL) {
+				children = new HashMap<Integer, StoreTreeNode>();
+			}
+		}
+
+		public StoreTreeNode(int level, int value) {
+			this(level);
+			this.value = value;
+		}
+		
+		private int value, level;
+		HashMap<Integer, StoreTreeNode> children = null;
+		
+		StoreTreeNode getAndMakeChild(int index, int val) {			
+			if (children.containsKey(index)) {
+				return children.get(index);
+			} else {
+				StoreTreeNode nc = new StoreTreeNode(level + 1, val);
+				children.put(index, nc);
+				return nc;
+			}
+		}
+		
+		StoreTreeNode getChild(int index) {
+			return children.get(index);
+		}
+		
+		int getValue() {
+			return value;
+		}
+	}
+
+}

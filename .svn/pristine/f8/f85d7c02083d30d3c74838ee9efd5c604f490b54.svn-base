@@ -1,0 +1,30 @@
+package userinterface;
+
+import java.io.File;
+
+import clonedetection.classification.SerializableRawResults;
+
+
+
+/**
+ * @author bhess
+ * 
+ * A Controller in the MVC pattern
+ *
+ */
+public interface SimulationController {
+	
+	public int getNumRepetitions();
+	public int getNumThreads();
+	public int getNumConfigurations();
+	
+	public void startSimulations();
+	public void startDetectionOnly();
+	public void plotData(SerializableRawResults s);
+	
+	public void logInfo(String info, int thread);
+	public void logInfo(String info);
+	
+	public void setFiles(File[] selectedFiles, boolean append, boolean serializedSimulations);
+
+}

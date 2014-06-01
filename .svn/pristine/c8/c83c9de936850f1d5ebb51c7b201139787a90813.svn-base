@@ -1,0 +1,118 @@
+package simulation.observer;
+
+import java.util.Observable;
+import java.util.Observer;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.sql.Timestamp;
+
+import simulation.Product;
+import simulation.ReadEvent;
+import simulation.entities.Partner;
+import simulation.entities.Recipient;
+import simulation.entities.Retailer;
+import simulation.utilities.DBConnection;
+import simulation.utilities.Logging;
+import simulation.utilities.MathTools;
+
+/**
+ * @author bhess
+ * 
+ * Observer for events that records them to the Database
+ *
+ */
+public class DBRecorder implements Observer {
+
+	public static final String INEVENT = "IN";
+	
+	public static final String OUTEVENT = "OUT";
+	
+	private static final String SQL_DROP_TABLE = "drop table rep";
+	private static final String SQL_CREATE_TABLE = "CREATE TABLE rep" +
+ 		"(ID INTEGER, TIME TIMESTAMP, LOCATION VARCHAR(10), STEP VARCHAR(3), MISREAD INTEGER, CLONE INTEGER, EAVESDROPPED INTEGER, TYPE INTEGER)";
+
+	private static final String SQL_INSERT_RECORD = "insert into rep values(?, ?, ?, ?, ?, ?, ?, ?)";
+	
+	/**
+	 * kills (deletes) all traces that occur after being arrived at a retailer
+	 */	
+	private static final String SQL_KILL_OVERLENGHT_TRACE = "delete from rep where id=? and time>{fn TIMESTAMPADD(SQL_TSI_SECOND, ?, (select min(time) from rep where id=? and type=" + Partner.RETAILER + "))}";
+
+	
+	/**
+	 * Initialization by creating a new DB table
+	 * @param tableName
+	 * Table which will be created
+	 * @param thread
+	 * Thread number where the observer should get its
+	 * DB connection from
+	 */
+	public DBRecorder(String tableName, int thread) {
+		try {
+			Connection conn = DBConnection.getConnection(thread);
+			try {
+				DBConnection.executeCriticalUpdate(SQL_DROP_TABLE.replace("rep", tableName));
+			} catch (Exception e) {
+				
+			}
+			DBConnection.executeCriticalUpdate(SQL_CREATE_TABLE.replace("rep", tableName));
+			insert = conn.prepareStatement(SQL_INSERT_RECORD.replace("rep", tableName));
+			kill = conn.prepareStatement(SQL_KILL_OVERLENGHT_TRACE.replace("rep", tableName));
+		} catch (Exception e) {
+			Logging.log.fatal(e.getMessage());
+			System.exit(1);
+		}
+	}
+		
+	
+	private PreparedStatement insert, kill;
+	
+	/* (non-Javadoc)
+	 * @see java.util.Observer#update(java.util.Observable, java.lang.Object)
+	 */
+	public void update(Observable o, Object arg) {
+		if (!(arg instanceof ReadEvent)) {
+			return;
+		}
+		ReadEvent re = (ReadEvent)arg;		
+		Product p = re.getChannel().getProduct();
+		Recipient r = (Recipient)o;
+		Timestamp timestamp = new Timestamp(p.currentDate.getTimeInMillis());
+				
+		try {
+			insert.setInt(1, p.productID);
+			insert.setTimestamp(2, timestamp);
+			insert.setString(3, r.getName());
+			insert.setString(4, re.getEventType());
+			insert.setInt(5, (re.isMisread() ? 1 : 0));
+			insert.setInt(6, (p.isClone ? 1 : 0));
+			insert.setInt(7, re.isEavesdropped() ? 1 : 0);
+			insert.setInt(8, r.getType());
+			insert.executeUpdate();
+			
+			if (p.isClone && r instanceof Retailer) {
+				Retailer ret = (Retailer)r;
+				int gauss = (int)(MathTools.nextGaussian(ret.timeToPOS, ret.timeToPOSStd));
+				gauss = (gauss > 0 ? gauss : 1);
+				kill.setInt(1, p.productID);
+				kill.setInt(2, gauss);
+				kill.setInt(3, p.productID);
+				kill.executeUpdate();
+			}
+			
+		} catch (SQLException e) {
+			Logging.log.fatal(e.getMessage());
+			System.exit(1);
+		}
+		
+	}
+	
+	/*
+	 * 
+	 */
+	private void killTag() {
+		
+	}
+	
+}

@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!ELEMENT config (slot+,manufacturer+,wholesaler*,retailer+) >
+
+<!ELEMENT slot (POS?) >
+<!ATTLIST slot id ID #REQUIRED >
+<!ATTLIST slot Pmr CDATA #IMPLIED >
+<!ATTLIST slot Pmrstd CDATA #REQUIRED >
+
+<!ELEMENT manufacturer (mslot+) >
+<!ATTLIST manufacturer name ID #REQUIRED>
+
+<!ELEMENT wholesaler (wslot+) >
+<!ATTLIST wholesaler name ID #REQUIRED >
+
+<!ELEMENT retailer (rslot+) >
+<!ATTLIST retailer name ID #REQUIRED >
+
+<!ELEMENT mslot (Pt,Si,partner+)>
+<!ATTLIST mslot id IDREF #REQUIRED>
+<!ATTLIST mslot Pmr CDATA #REQUIRED >
+<!ATTLIST mslot Pr CDATA #REQUIRED >
+<!ATTLIST mslot RID CDATA #REQUIRED >
+
+<!ELEMENT wslot (Si,IOLT,partner+) >
+<!ATTLIST wslot id IDREF #REQUIRED>
+<!ATTLIST wslot Pmr CDATA #REQUIRED >
+
+<!ELEMENT rslot (POS?) >
+<!ATTLIST rslot id IDREF #REQUIRED >
+<!ATTLIST rslot Pmr CDATA #REQUIRED >
+
+<!ELEMENT Pt EMPTY >
+<!ATTLIST Pt years CDATA #IMPLIED >
+<!ATTLIST Pt months CDATA #IMPLIED >
+<!ATTLIST Pt days CDATA #IMPLIED >
+<!ATTLIST Pt hours CDATA #IMPLIED >
+<!ATTLIST Pt mins CDATA #IMPLIED >
+<!ATTLIST Pt secs CDATA #IMPLIED >
+
+<!ELEMENT POS (std) >
+<!ATTLIST POS years CDATA #IMPLIED >
+<!ATTLIST POS months CDATA #IMPLIED >
+<!ATTLIST POS days CDATA #IMPLIED >
+<!ATTLIST POS hours CDATA #IMPLIED >
+<!ATTLIST POS mins CDATA #IMPLIED >
+<!ATTLIST POS secs CDATA #IMPLIED >
+
+<!ELEMENT IOLT (std) >
+<!ATTLIST IOLT years CDATA #IMPLIED >
+<!ATTLIST IOLT months CDATA #IMPLIED >
+<!ATTLIST IOLT days CDATA #IMPLIED >
+<!ATTLIST IOLT hours CDATA #IMPLIED >
+<!ATTLIST IOLT mins CDATA #IMPLIED >
+<!ATTLIST IOLT secs CDATA #IMPLIED >
+
+<!ELEMENT Si (time+) >
+<!ELEMENT time EMPTY >
+<!ATTLIST time hour CDATA #REQUIRED >
+<!ATTLIST time minute CDATA #IMPLIED >
+<!ATTLIST time second CDATA #IMPLIED >
+
+<!ELEMENT partner (OILT,EID)>
+<!ATTLIST partner id IDREF #REQUIRED >
+<!ATTLIST partner OL CDATA #REQUIRED >
+<!ELEMENT OILT (std) >
+<!ATTLIST OILT years CDATA #IMPLIED >
+<!ATTLIST OILT months CDATA #IMPLIED >
+<!ATTLIST OILT days CDATA #IMPLIED >
+<!ATTLIST OILT hours CDATA #IMPLIED >
+<!ATTLIST OILT mins CDATA #IMPLIED >
+<!ATTLIST OILT secs CDATA #IMPLIED >
+
+<!ELEMENT std EMPTY>
+<!ATTLIST std years CDATA #IMPLIED >
+<!ATTLIST std months CDATA #IMPLIED >
+<!ATTLIST std days CDATA #IMPLIED >
+<!ATTLIST std hours CDATA #IMPLIED >
+<!ATTLIST std mins CDATA #IMPLIED >
+<!ATTLIST std secs CDATA #IMPLIED >
+
+<!ELEMENT EID EMPTY >
+<!ATTLIST EID source CDATA #REQUIRED >
+<!ATTLIST EID srcOffset CDATA #REQUIRED >
+<!ATTLIST EID destination CDATA #REQUIRED >
+<!ATTLIST EID dstOffset CDATA #REQUIRED >

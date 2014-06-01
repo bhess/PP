@@ -1,0 +1,110 @@
+package simulation.utilities;
+
+/*
+ * modifyed and simplifyed by Basil Hess, ETH Zürich, 2009
+ * 
+ * Copyright (c) 2005, Regents of the University of California
+ * All rights reserved.
+ * 
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * * Redistributions of source code must retain the above copyright
+ *   notice, this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright
+ *   notice, this list of conditions and the following disclaimer in
+ *   the documentation and/or other materials provided with the
+ *   distribution.  
+ *
+ * * Neither the name of the University of California, Berkeley nor
+ *   the names of its contributors may be used to endorse or promote
+ *   products derived from this software without specific prior 
+ *   written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+ * OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+
+/**
+ * A Binomial distribution with parameters n (number of trials) and p
+ * (probability of success for a given trial). The probability of k successes
+ * P(k)= C(n,k) * p^k * (1-p)^(n-k). A Binomial distribution can be created in
+ * the following ways:
+ * <ul>
+ * <li>With two parameters, n and p, in which case it expects no arguments;
+ * <li>With one parameter, p, in which case it expects n as an argument;
+ * <li>With no parameters, in which case it expects two arguments, n and p.
+ * </ul>
+ */
+
+public class Binomial {
+	/**
+	 * Creates a new Binomial distribution with parameters n and p.
+	 */
+	public Binomial(int n, double p) {
+		this.n = n;
+		this.p = p;
+	}
+
+	/**
+	 * Returns the probability of integer k under this distribution.
+	 */
+	public double getProb(int k) {
+		return (binomial(n, k)
+				* Math.pow(p, k) * Math.pow((1 - p), (n - k)));
+	}
+	
+	public double getProb(int k, int binom) {
+		return (binom
+				* Math.pow(p, k) * Math.pow((1 - p), (n - k)));
+	}
+
+	/**
+	 * Returns the log of the probability of integer k under the distribution.
+	 */
+	public double getLogProb(int k) {
+		return Math.log(getProb(k));
+	}
+
+	public String toString() {
+		return getClass().getName();
+	}
+
+	private int n;
+	private double p;
+	
+	/*
+	 * Returns binomial(n,k) using dynamic programming
+	 * from: http://www.cs.princeton.edu/introcs/96optimization/Binomial.java.html
+	 */
+	public long binomial(int n, int k) {
+
+		long[][] binomial = new long[n + 1][k + 1];
+
+		// base cases
+		for (int kk = 1; kk <= k; kk++)
+			binomial[0][k] = 0;
+		for (int nn = 0; nn <= n; nn++)
+			binomial[nn][0] = 1;
+
+		// bottom-up dynamic programming
+		for (int nn = 1; nn <= n; nn++)
+			for (int kk = 1; kk <= k; kk++)
+				binomial[nn][kk] = binomial[nn - 1][kk - 1] + binomial[nn - 1][kk];
+
+		return binomial[n][k];
+	}
+}

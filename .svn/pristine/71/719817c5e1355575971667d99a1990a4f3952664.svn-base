@@ -1,0 +1,177 @@
+package simulation.observer;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.util.Calendar;
+import java.util.Observable;
+import java.util.Observer;
+
+import simulation.Product;
+import simulation.ReadEvent;
+import simulation.entities.DirectedChannel;
+import simulation.entities.Retailer;
+import simulation.utilities.DBConnection;
+import simulation.utilities.Logging;
+
+/**
+ * @author bhess
+ * 
+ * Observer that represents an eavesdropper
+ * An eavesdropper spies events and delivers spied tags
+ * when a counterfeit should be bringed in the supply chain 
+ *
+ */
+public class Eavesdropper implements Observer {
+
+	/**
+	 * SQL query for creating an eavesdropper table
+	 */
+	private static final String SQL_CREATE_TABLE = "CREATE TABLE rep" +
+     	"(ID INTEGER, FIRSTSEEN TIMESTAMP, EXPIRED TIMESTAMP, " + 
+     	"PRIMARY KEY (ID))";
+	
+	/**
+	 * SQL query to drop the eavedropper table
+	 */
+	private static final String SQL_DROP_TABLE = "drop table rep";
+	
+	/**
+	 * SQL query to insert a spied tag into the eavesdropper table
+	 */
+	private static final String SQL_INSERT_EAVESDROP = "insert into rep values(?, ?, NULL)";
+	
+	/**
+	 * SQL query for setting an expiry date for a spied tag
+	 */
+	private static final String SQL_SET_EXPIRY = "update rep set expired=? where id=?";
+	
+	/**
+	 * SQL query for getting a random eavesdropped id
+	 */
+	private static final String SQL_RANDOM_EAVESDROP = "select id from rep " + 
+		"where firstseen < ? and expired > ? order by RANDOM()";
+	
+	private static int EXPIRY_FRACTION = 1;
+	
+	/**
+	 * Initializing the eavesdropper
+	 * @param maxLifetime
+	 * Maximal lifetime for a tag (is deprecated by now because it's not exact enough)
+	 * @param tableName
+	 * DB table name for the eavesdropper DB
+	 * @param thread
+	 * Thread number
+	 */
+	public Eavesdropper(long maxLifetime, String tableName, int thread) {
+		try {
+			Connection conn = DBConnection.getConnection(thread);
+			setMaxLifetime(maxLifetime);
+			try {
+				// Experience with causing problems when not thread-safe executed...
+				DBConnection.executeCriticalUpdate(SQL_DROP_TABLE.replace("rep", tableName));
+			} catch (Exception e){}
+			DBConnection.executeCriticalUpdate(SQL_CREATE_TABLE.replace("rep", tableName));
+			
+			insert = conn.prepareStatement(SQL_INSERT_EAVESDROP.replace("rep", tableName));
+			setExpiry = conn.prepareStatement(SQL_SET_EXPIRY.replace("rep", tableName));
+			randEavesdrop = conn.prepareStatement(SQL_RANDOM_EAVESDROP.replace("rep", tableName));
+		} catch (Exception e) {
+			Logging.log.fatal(e.getMessage());
+			System.exit(1);
+		}
+	}
+	
+	/*
+	 * max lifetime in millis
+	 */
+	private long maxLifetime;
+	
+	public void setMaxLifetime(long ml) {
+		this.maxLifetime = ml * 1000;
+	}
+	
+	
+	private PreparedStatement insert, setExpiry, randEavesdrop;
+	
+	/**
+	 * Eavesdrops an ID of an original product
+	 * 
+	 * @param eavesdropTime Take care all IDs until a specified
+	 * 		calendar date
+	 * @return a reused ID
+	 * 
+	 */
+	public int reusedID(Calendar eavesdropTime) {
+		int res = 0;
+		try {
+			randEavesdrop.setMaxRows(1);
+			long tim = eavesdropTime.getTimeInMillis();
+			Timestamp tsNow = new Timestamp(tim);
+			//Timestamp tsNotexpired = new Timestamp(tim - maxLifetime);
+			// System.out.println("max: " + tsUntil.toString() + ", min: " + tsNotexpired.toString());
+			randEavesdrop.setTimestamp(1, tsNow);
+			//randEavesdrop.setTimestamp(2, tsNotexpired);
+			randEavesdrop.setTimestamp(2, tsNow);
+			ResultSet rs = randEavesdrop.executeQuery();
+			if (!rs.next()) return -1;
+			res = rs.getInt(1);
+			rs.close();
+		} catch (SQLException e) {
+			Logging.log.fatal(e.getMessage());
+			System.exit(1);
+		}
+		return res;
+	}
+
+	/* (non-Javadoc)
+	 * @see java.util.Observer#update(java.util.Observable, java.lang.Object)
+	 */
+	public void update(Observable o, Object arg) {
+		if (!(arg instanceof ReadEvent)) return;
+		
+		ReadEvent re = (ReadEvent)arg;
+		DirectedChannel d = re.getChannel();
+		Product p = d.getProduct();
+		
+		// if product arrives at retailer and is eavesdropped -> set expiry time
+		if (o instanceof Retailer) {
+			if (p.isAlreadyEavesdropped) {
+				try {
+					long exp = p.firstseen + ((p.currentDate.getTimeInMillis() - p.firstseen) / EXPIRY_FRACTION);
+					setExpiry.setTimestamp(1, new Timestamp(exp));
+					setExpiry.setInt(2, p.productID);
+					setExpiry.executeUpdate();
+				} catch (Exception e) {
+					Logging.log.fatal(e.getMessage());
+					System.exit(1);
+				}
+			}
+			return;
+		}
+		
+		if (re.isEavesdropped()) {	
+			// only if product isn't already eavesdropped...
+			if (!p.isAlreadyEavesdropped) {
+				// register product...
+				try {
+					p.firstseen = p.currentDate.getTimeInMillis() 
+							+ (re.getEavesdroppedOffset()*1000);
+					insert.setInt(1, p.productID);
+					insert.setTimestamp(2, new Timestamp(p.firstseen));
+					insert.executeUpdate();
+					p.isAlreadyEavesdropped = true;
+					//System.out.println("Database written");
+				} catch (Exception e) {
+					Logging.log.fatal(e.getMessage());
+					System.exit(1);
+				}
+			}
+			
+			//System.out.println("Eavesdropped Product ID: " + re.getProduct().productID);
+		}
+	}
+	
+}

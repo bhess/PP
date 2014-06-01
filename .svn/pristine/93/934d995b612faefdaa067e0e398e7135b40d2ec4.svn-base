@@ -1,0 +1,72 @@
+package simulation.utilities;
+
+import java.io.IOException;
+
+import org.apache.log4j.ConsoleAppender;
+import org.apache.log4j.FileAppender;
+import org.apache.log4j.Level;
+import org.apache.log4j.Logger;
+import org.apache.log4j.SimpleLayout;
+
+/** 
+ * @author bhess
+ * 
+ * Logging class for the simulator
+ * Uses a Log4j interface
+ */
+public class Logging {
+	
+	/**
+	 * Central Logging facility for the Simulator
+	 */
+	public static Logger log = Logger.getRootLogger();
+	
+	/**
+	 * Adds the console output for logging if (if not already)
+	 */
+	public static void setConsoleLogger() {
+		if (consoleAppender != null) return;
+		consoleAppender = new ConsoleAppender(new SimpleLayout());
+		log.addAppender(consoleAppender);
+		log.setLevel(Level.ALL);
+	}
+	
+	/**
+	 * Removes the console output if available
+	 */
+	public static void removeConsoleAppender() {
+		log.removeAppender(consoleAppender);
+		consoleAppender = null;
+	}
+	
+	/**
+	 * Adds a file output
+	 * @param path to the file
+	 * @throws IOException
+	 */
+	public static void setFileAppender(String path) throws IOException {
+		if (fileAppender != null) return;
+		fileAppender = new FileAppender(new SimpleLayout(), path, false);
+		log.addAppender(fileAppender);
+		log.setLevel(Level.ALL);
+	}
+	
+	/**
+	 * Removes the file appender output
+	 */
+	public static void removeFileAppender() {
+		log.removeAppender(fileAppender);
+		fileAppender = null;
+	}
+	
+	/**
+	 * the console output
+	 */
+	private static ConsoleAppender consoleAppender = null;
+	
+	/**
+	 * the file output
+	 */
+	private static FileAppender fileAppender = null;
+	
+}

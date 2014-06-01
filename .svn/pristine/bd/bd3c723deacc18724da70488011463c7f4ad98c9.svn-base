@@ -1,0 +1,77 @@
+package userinterface;
+
+/**
+ * @author bhess
+ *
+ * Interface for a Simulation View (in MVC)
+ */
+public interface SimulationView {
+	
+	/**
+	 * starting the simulation/detection
+	 */
+	public void start();
+
+	/**
+	 * controller notifies that simulations are done
+	 */
+	public void notifySimulationsDone();
+	
+	/**
+	 * controller notifies that detections are done
+	 */
+	public void notifyDetectionsDone();
+	
+	/**
+	 * logging some information to the view
+	 * @param info
+	 * information that will be notified to the view
+	 */
+	public void log(String info);
+	
+	/**
+	 * logging some information to the view, coming from 
+	 * one specific thread
+	 * @param info
+	 * the info
+	 * @param thread
+	 * thread where the info comes from
+	 */
+	public void log(String info, int thread);
+	
+	/**
+	 * setting the total progress
+	 * @param progress
+	 */
+	public void setTotalProgress(int progress);
+	
+	/**
+	 * setting the progress of one thread
+	 * @param progress
+	 * @param thread
+	 */
+	public void setProgress(int progress, int thread);
+	
+	/**
+	 * setting the minimal and the maximal progress
+	 * @param min
+	 * minimal progress
+	 * @param max
+	 * maximal progress
+	 * @param thread
+	 * thread for which min and max should apply
+	 */
+	public void setMinMaxProgress(int min, int max, int thread);
+	
+	/**
+	 * notification (from the controller) that the detection
+	 * has been started
+	 */
+	public void notifyDetectionStarted();
+	
+	/**
+	 * notification (from the controller) that the simulation
+	 * has been started
+	 */
+	public void notifySimulationsStarted();
+}

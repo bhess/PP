@@ -1,0 +1,51 @@
+package simulation.utilities;
+
+/**
+ * @author bhess
+ * 
+ * Represents a Binomial Function
+ *
+ */
+public class BinomialFunction implements IntegralFunction {
+
+	/**
+	 * Initializing with n choose k
+	 * @param n
+	 * Sample set
+	 * @param k
+	 * Choosing k from sample set n
+	 */
+	public BinomialFunction(int n, int k) {
+		this.n = n;
+		this.k = k;
+	}
+	
+	private int n, k;
+		
+	/* (non-Javadoc)
+	 * @see simulation.utilities.IntegralFunction#function(double)
+	 */
+	@Override
+	public double function(double p) {
+		return new Binomial(n, p).getProb(k);
+	}
+	
+	/**
+	 * integrates the binomial function over the probabilities from
+	 * a specified bound
+	 * 
+	 * Integration uses Gauss quadrature
+	 * @param n
+	 * @param k
+	 * @return
+	 */
+	public static double integrate(int n, int k, double lowerBound, double upperBound) {
+		return Integration.gaussQuad(new BinomialFunction(n, k),
+			lowerBound, upperBound, 10);
+	}
+	
+	public static void main(String[] args) {
+		System.out.println(integrate(10, 2, 0, 0.02));
+	}
+
+}

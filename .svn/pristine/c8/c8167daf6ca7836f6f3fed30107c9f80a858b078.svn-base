@@ -1,0 +1,87 @@
+package simulation.entities;
+
+import java.util.LinkedList;
+import java.util.Observable;
+import java.util.Queue;
+import java.util.Random;
+
+import simulation.INEvent;
+import simulation.Product;
+
+
+/**
+ * 
+ * @author Basil Hess
+ * 
+ * Abstract objects of this class represent a partner
+ * that can receive goods.
+ *
+ */
+public abstract class Recipient extends Observable implements Partner {
+	
+	/**
+	 * Initializing the Recipient
+	 * @param name
+	 * Name of the recipient
+	 * @param randSeed
+	 * random seed
+	 * @param misreadProb
+	 * misread probability
+	 */
+	protected void init(String name, long randSeed, float misreadProb) {
+		productQueue = new LinkedList<Product>();
+		random = new Random(randSeed);
+		// this.eaveIN = eaveIN;
+		this.misreadProb = misreadProb;
+		this.name = name;
+	}
+	
+	/**
+	 * The recipient receives a product and records this IN-event
+	 */
+	public void receiveProduct(DirectedChannel d) {
+		productQueue.add(d.getProduct());
+		setChanged();
+		notifyObservers(new INEvent(this, d));
+	}
+	
+	/**
+	 * The misread probability
+	 * @return
+	 */
+	public float getMisreadProb() {
+		return misreadProb;
+	}
+	
+	/**
+	 * the name of the Recipient
+	 */
+	public String getName() {
+		return name;
+	}
+	
+	/**
+	 * Product queue for received products
+	 */
+	protected Queue<Product> productQueue;
+	
+	/**
+	 * PRG
+	 */
+	public Random random;
+	
+	/**
+	 * Percentage of eavesdropped events
+	 */
+	@Deprecated
+	public float eaveIN;
+	
+	/**
+	 * Probability of a misread occuring
+	 */
+	public float misreadProb;
+	
+	private String name;
+	
+	
+}

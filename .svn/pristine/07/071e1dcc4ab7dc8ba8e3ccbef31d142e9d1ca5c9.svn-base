@@ -1,0 +1,191 @@
+package clonedetection;
+
+import clonedetection.results.CloneResults;
+
+
+/**
+ * @author bhess
+ * 
+ * Interface representing an abstract way of Clone Detection
+ * The output of Clone Detection is some metrics, represented
+ * by an inner class here
+ *
+ */
+public interface CloneDetector {
+
+	/*
+	 * threshold steps for the simulation
+	 * The evaluated clone detection consists then of 'STEP'(+1) different
+	 * threshold which are uniformly distributed among some interval
+	 * 
+	 * TODO: distribute threshold adaptively
+	 */
+	public static final int STEP = 100;
+	
+	/**
+	 * Analyzes an array of CloneResults. the array consists of the different
+	 * repetitions.
+	 * The output of this function is for each repetition an array of metrics
+	 * (for each tag)
+	 * 
+	 * @param results
+	 * Array of simulation results
+	 * @param pmr
+	 * the misread probability of the underlying simulation
+	 * @return
+	 * Array of metrics (for each repetition its metrics)
+	 */
+	public void analyzeDetection(CloneResults[] results, float pmr);
+	
+	public CloneDetectionMetrics[][] getMetrics();
+	
+	public class NegativesMetrics {
+		public NegativesMetrics(long cloneButPerfectFit, long cloneButPerfectFitWOMisread, 
+			long cloneButMisread, long cloneButBoth, long totalClone) {
+			this.cloneButPerfectFit = cloneButPerfectFit;
+			this.cloneButPerfectFitWOMisread = cloneButPerfectFitWOMisread;
+			this.cloneButMisread = cloneButMisread;
+			this.cloneButBoth = cloneButBoth;
+			this.totalClone = totalClone;
+		}
+		public long cloneButPerfectFit, cloneButPerfectFitWOMisread, 
+			cloneButMisread, cloneButBoth, totalClone;
+	}
+	
+	/**
+	 * 
+	 * @author bhess
+	 * 
+	 * Clone detection metrics: consists of false positive rate, false negative
+	 * rate and other metrics that can be derived from this.
+	 * 
+	 * Each class has a threshold associated
+	 *
+	 */
+	public class CloneDetectionMetrics {
+		
+		/**
+		 * Initializes the metrics with basic values
+		 * @param tp
+		 * True positives
+		 * @param fp
+		 * False positives
+		 * @param fn
+		 * False negatives
+		 * @param tn
+		 * True negatives
+		 * @param treshold
+		 * Associated threshold
+		 */
+		public CloneDetectionMetrics(int tp, int fp, int fn, int tn, double treshold) {
+			this.tp = tp;
+			this.fp = fp;
+			this.fn = fn;
+			this.tn = tn;
+			this.treshold = treshold;
+		}
+
+		public void setNegativeMetrics(long cloneButPerfectFit,
+				long cloneButPerfectFitWOMisread, long cloneButMisread,
+				long cloneButBoth, long totalClone) {
+			this.cloneButPerfectFit = cloneButPerfectFit;
+			this.cloneButPerfectFitWOMisread = cloneButPerfectFitWOMisread;
+			this.cloneButMisread = cloneButMisread;
+			this.cloneButBoth = cloneButBoth;
+			this.totalClone = totalClone;
+		}
+		
+		private int tp, fp, fn, tn;
+		private double treshold;
+		
+		private long cloneButPerfectFit, cloneButPerfectFitWOMisread, 
+			cloneButMisread, cloneButBoth, totalClone;
+		
+		public double getPercOfFNRDueMisread() {
+			if (cloneButMisread > cloneButMisread + cloneButPerfectFit - cloneButBoth) {
+				System.out.println("cloneButMisread: " + cloneButMisread);
+				System.out.println("cloneButPerfectFit: " + cloneButPerfectFit);
+				System.out.println("cloneButBoth: " + cloneButBoth);
+			}
+			return (getFnr() * (double)cloneButMisread) / 
+				(double)(cloneButMisread + cloneButPerfectFit - cloneButBoth);
+		}
+		
+		public double getPercOfFNRDuePF() {
+			if (cloneButPerfectFit > cloneButMisread + cloneButPerfectFit - cloneButBoth) {
+				System.out.println("cloneButMisread: " + cloneButMisread);
+				System.out.println("cloneButPerfectFit: " + cloneButPerfectFit);
+				System.out.println("cloneButBoth: " + cloneButBoth);
+			}
+			return (getFnr() * (double)cloneButPerfectFit) /
+				(double)(cloneButMisread + cloneButPerfectFit - cloneButBoth);
+		}
+		
+		public double getPercOfFNRDueBoth() {
+			if (cloneButBoth > cloneButMisread + cloneButPerfectFit - cloneButBoth) {
+				System.out.println("cloneButMisread: " + cloneButMisread);
+				System.out.println("cloneButPerfectFit: " + cloneButPerfectFit);
+				System.out.println("cloneButBoth: " + cloneButBoth);
+			}
+			return (getFnr() * (double)cloneButBoth) / 
+				(double)(cloneButMisread + cloneButPerfectFit - cloneButBoth);
+		}
+		
+		/*
+		 * Power of the test (or hit-rate, sensivity)
+		 */
+		public double getPower() {
+			return 1.0d - getFnr();
+		}
+		
+		/*
+		 * False Negative Rate / Miss rate
+		 */
+		public double getFnr() {
+			if (fn + tp == 0) {
+				return 0;
+			} else {
+				return (double)fn / (double)(fn + tp);
+			}
+		}
+		
+		/*
+		 * False Positive Rate / False Alarm rate
+		 */
+		public double getFpr() {
+			if (fp + tn == 0) {
+				return 0;
+			} else {
+				return (double)fp / (double)(fp + tn);
+			}
+		}
+		
+		/*
+		 * Positive prediction value
+		 * or: fraction of correct positive predicted tests
+		 */
+		public double getPpv() {
+			if (fp + tp == 0) {
+				return 1;
+			} else {
+				return (double)fp / (double)(fp + tp);
+			}
+		}
+		
+		/*
+		 * Accuracy:
+		 * fraction of positive predicted values (pos and neg)
+		 */
+		public double getAccuracy() {
+			return (double)(tp + tn) / (double)(tp + fp + fn + tn);
+		}
+		
+		/*
+		 * Gets the threshold with which the metric was done 
+		 */
+		public double getTreshold() {
+			return treshold;
+		}
+	}
+	
+}

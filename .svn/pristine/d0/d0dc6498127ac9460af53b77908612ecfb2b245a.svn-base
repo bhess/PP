@@ -1,0 +1,128 @@
+package evaluation;
+
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.Writer;
+
+/**
+ * @author bhess
+ *
+ * Utility to write DAT-files for gnuplot-data
+ */
+public class DATWriter {
+	
+	/**
+	 * initializing with the DAT filename and the number of columns (metrics)
+	 * @param fileName
+	 * File name -> fileName.dat
+	 *  default location, in a data-subfolder (which must exist in advance)
+	 * @param columns
+	 * Number of columns for the gnuplot data,
+	 *  which is the number of metrics
+	 * @throws IOException
+	 *  if the file cannot be wrutten
+	 */
+	public DATWriter(String fileName, int columns) throws IOException {
+		FileWriter fw = new FileWriter("data/" + fileName + ".dat");
+		this.out = new BufferedWriter(fw);
+		this.columns = columns;
+		this.fileName = fileName;
+	}
+	
+	private Writer out;
+	private int columns;
+	private String fileName;
+	
+	/**
+	 * write a gnuplot entry
+	 * @param entry
+	 * entry to write (size has to equal the specified 'columns'
+	 *  in the constructor
+	 * @throws IOException
+	 *  if the entry cannot be written
+	 */
+	public void writeEntry(double[] entry) throws IOException {
+		String w = "";
+		for (int i = 0; i < columns; ++i) {
+			w += entry[i] + " ";
+		}
+		out.write(w);
+		out.write("\n");
+	}
+	
+	/**
+	 * Writes (!) additional data for the Plot
+	 * @param avgNmbEvents
+	 * The average number of events per tag
+	 * @param avgNmbVisParties
+	 * The average number of visited parties per tag
+	 * @param avgTimeInChain
+	 * The average time of a tag in the supply chain (in seconds)
+	 * @throws IOException
+	 *  if the data cannot be written
+	 */
+	public void set(double avgNmbEvents, double avgNmbVisParties, double avgTimeInChain) throws IOException {
+		out.write("# avg number of visited entities: " + avgNmbVisParties + 
+				", avg number of events: " + avgNmbEvents + "#avg time in SC: " + avgTimeInChain);
+		out.write("\n");
+		this.avgNmbEvents = avgNmbEvents;
+		this.avgNmbVisParties = avgNmbVisParties;
+		this.avgTimeInChain = avgTimeInChain;
+	}
+	
+	private double avgNmbEvents = -1, avgNmbVisParties = -1, avgTimeInChain = -1;
+	
+	/**
+	 * finalizes and closes the DAT file
+	 */
+	public void finalize() throws IOException {
+		out.flush();
+		out.close();
+	}
+	
+	/**
+	 * Writes Gnuplot configurations
+	 * - One with FNR,FPR against threshold
+	 * - One with ROC graph (False alert vs. Hit-rate)
+	 * 
+	 * ROC has -2.gpl ending
+	 * 
+	 * @throws IOException
+	 *  if the configs could not be written
+	 */
+	public void writeGnuplotConfig() throws IOException {
+		Writer w = new BufferedWriter(new FileWriter("data/" + fileName + ".gpl"));
+		
+		String title = "avg #hops: " + avgNmbVisParties + ", avg #events: " + avgNmbEvents + 
+		", avg time in chain: " + avgTimeInChain + "s";
+		
+		String text = "plot '" + fileName + ".dat' using 1:2 title \"FPR\" with lines, " +
+				"'" + fileName + ".dat' using 1:3 title \"FNR\" with lines, " + 
+				"'" + fileName + ".dat' using 1:6 title \"Accuracy\" with lines\n";
+		
+		String t2 = "plot '" + fileName + ".dat' using 2:4 title \"Varying T\" with lines\n";
+		
+		w.write("set terminal postscript\n");
+		w.write("set output '" + fileName + ".ps'\n");
+		w.write("set title \"" + title + "\"\n");
+		//w.write("set xrange [0:1]\n");
+		//w.write("set yrange [0:1]\n");
+		w.write("set xlabel 'Threshold T'\n");
+		w.write(text);
+		w.flush();
+		w.close();
+		
+		w = new BufferedWriter(new FileWriter("data/" + fileName + "-2.gpl"));
+		w.write("set terminal postscript\n");
+		w.write("set output '" + fileName + "-2.ps'\n");
+		w.write("set title \"ROC - " + title + "\"\n");
+		//w.write("set xrange [0:1]\n");
+		//w.write("set yrange [0:1]\n");
+		w.write("set xlabel \"FPR - false alarm rate\"\n");
+		w.write("set ylabel \"Hit-rate\"\n");
+		w.write(t2);
+		w.flush();
+		w.close();
+	}
+}

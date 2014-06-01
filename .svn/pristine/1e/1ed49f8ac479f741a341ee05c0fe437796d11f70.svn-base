@@ -1,0 +1,98 @@
+/**
+ * 
+ */
+package clonedetection.classification;
+
+import clonedetection.results.CheckedResults;
+import clonedetection.results.Results;
+import simulation.utilities.Binomial;
+
+/**
+ * @author bhess
+ * 
+ * Classifies genuine and counterfeits using a Binomial test
+ * Null hypothesis is that failed rules come from misreads
+ * depending on the significance value (threshold here),
+ * the null hypothesis is either accepted (-> genuine) or
+ * rejected (-> clone)
+ *
+ * Using the verified rules from the trace, the original trace length
+ * is reconstructed as
+ * original trace length = 'given trace length' + failed rules
+ * 
+ */
+public class DependentBinomialTest implements CloneClassification {
+
+	private static final String TYPE = "EventDependentBinomialTest"; 
+
+	/* (non-Javadoc)
+	 * @see clonedetection.CloneClassification#isClone(double[], boolean[])
+	 */
+	@Override
+	public double isClone(float pmr, Results result) {
+		CheckedResults cr = result.getCheckedResults();
+
+		int failed = cr.getFailed();
+		int total = cr.getOriginalTraceLength();
+		
+		double prob = getProb(total, pmr, failed);
+		if (prob < min) min = prob;
+		if (prob > max) max = prob;
+		return prob;
+	}
+	
+	private double min = Double.MAX_VALUE, max = Double.MIN_VALUE;
+	
+	private double getProb(int n, float p, int k) {
+		Binomial bin = new Binomial(n, p);
+		double prob = 0d;
+		for (int i = k; i < n; ++i) {
+			prob += bin.getProb(i);
+		}
+		return prob;
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see clonedetection.classification.CloneClassification#getMaxThreshold()
+	 */
+	@Override
+	public double getMaxThreshold() {
+		return max;
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see clonedetection.classification.CloneClassification#getMinThreshold()
+	 */
+	@Override
+	public double getMinThreshold() {
+		return min;
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see clonedetection.classification.CloneClassification#getMode()
+	 */
+	@Override
+	public int getMode() {
+		return GREATER_OR_EQUAL;
+	}
+
+	/* (non-Javadoc)
+	 * @see clonedetection.classification.CloneClassification#isClone(double, double)
+	 */
+	@Override
+	public boolean isClone(double threshold, double isClone) {
+		return threshold >= isClone;
+	}
+	
+	/* (non-Javadoc)
+	 * @see clonedetection.CloneClassification#getName()
+	 */
+	@Override
+	public String getName() {
+		return TYPE;
+	}
+
+}

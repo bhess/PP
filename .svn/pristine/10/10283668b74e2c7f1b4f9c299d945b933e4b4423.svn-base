@@ -1,0 +1,63 @@
+package simulation;
+
+import java.util.Calendar;
+import java.util.List;
+
+import simulation.entities.Partner;
+
+
+/**
+ * @author Basil Hess
+ * 
+ * Represents a Product inside a RFID-enhanced supply chain
+ */
+public class Product {
+
+	public Product(int productID, Calendar currentDate, boolean isClone) {
+		this.productID = productID;
+		this.currentDate = currentDate;
+		this.isClone = isClone;
+		if (isClone) {
+			isAlreadyEavesdropped = true;
+		}
+	}
+	
+	/**
+	 * ID to uniquely identify a Product, unless a counterfeit
+	 * is injected
+	 */
+	public int productID;
+	
+	/**
+	 * Current Date in the supply chain context
+	 */
+	public Calendar currentDate;
+	
+	/**
+	 * Identifies whether the Product is a clone of a already
+	 * existing instance of Product
+	 * 
+	 * 'isClone==true' implies that productID is reused
+	 */
+	public boolean isClone;
+	
+	/**
+	 * Signalizes that this product is already eavesdropped
+	 */
+	public boolean isAlreadyEavesdropped = false;
+	
+	/**
+	 * adding a partner that the product has visited
+	 * @param p
+	 */
+	public void attachVisitedPartner(Partner p) {
+		visitedPartners.add(p);
+	}
+	
+	/**
+	 * list of all visited partners
+	 */
+	private List<Partner> visitedPartners;
+	
+	public long firstseen;
+}

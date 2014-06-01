@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE config SYSTEM "config.dtd">
+<config>
+    <slot id="s1" Pmrstd="0.1"/>
+    <manufacturer name="M1">
+        <mslot id="s1" Pmr="0" Pr="100" RID="0">
+            <Pt days="2"/>
+            <Si>
+                <time hour="7"/>
+                <time hour="13"/>
+                <time hour="19"/>
+            </Si>
+            <partner id="W1" OL="0.5">
+                <OILT hours="1"><std mins="10"/></OILT>
+                <EID source="1" srcOffset="0" destination="1" dstOffset="0"/>
+            </partner>
+            <partner id="W2" OL="0.5">
+                <OILT hours="1"><std mins="10"/></OILT>
+                <EID source="1" srcOffset="0" destination="1" dstOffset="0"/>
+            </partner>
+        </mslot>
+    </manufacturer>
+    <manufacturer name="C1">
+        <mslot id="s1" Pmr="0" Pr="10" RID="1">
+            <Pt days="2"/>
+            <Si>
+                <time hour="0"/>
+                <time hour="1"/>
+                <time hour="2"/>
+                <time hour="3"/>
+                <time hour="4"/>
+                <time hour="5"/>
+                <time hour="6"/>
+                <time hour="7"/>
+                <time hour="8"/>
+                <time hour="9"/>
+                <time hour="10"/>
+                <time hour="11"/>
+                <time hour="12"/>
+                <time hour="13"/>
+                <time hour="14"/>
+                <time hour="15"/>
+                <time hour="16"/>
+                <time hour="17"/>
+                <time hour="18"/>
+                <time hour="19"/>
+                <time hour="20"/>
+                <time hour="21"/>
+                <time hour="22"/>
+                <time hour="23"/>
+            </Si>
+            <partner id="W1" OL="1">
+                <OILT hours="2"><std mins="20"/></OILT>
+                <EID source="0.5" srcOffset="0" destination="0.5" dstOffset="0"/>
+            </partner>
+        </mslot>
+    </manufacturer>
+    <wholesaler name="W1">
+        <wslot id="s1" Pmr="0">
+            <Si>
+                <time hour="7"/>
+                <time hour="13"/>
+                <time hour="19"/>
+            </Si>
+            <IOLT hours="1"><std mins="10"/></IOLT>
+            <partner id="R1" OL="0.4">
+                <OILT mins="40"><std mins="5"/></OILT>
+                <EID source="1" srcOffset="0" destination="1" dstOffset="0"/>
+            </partner>
+            <partner id="W2" OL="0.6">
+                <OILT hours="1"><std mins="10"/></OILT>
+                <EID source="1" srcOffset="0" destination="1" dstOffset="0"/>
+            </partner>
+        </wslot>
+    </wholesaler>
+    
+    <wholesaler name="W2">
+        <wslot id="s1" Pmr="0">
+            <Si>
+                <time hour="7"/>
+                <time hour="13"/>
+                <time hour="19"/>
+            </Si>
+            <IOLT hours="1"><std mins="10"/></IOLT>
+            <partner id="R1" OL="1">
+                <OILT mins="40"><std mins="5"/></OILT>
+                <EID source="1" srcOffset="0" destination="1" dstOffset="0"/>
+            </partner>
+        </wslot>
+    </wholesaler>
+    
+    <retailer name="R1">
+        <rslot id="s1" Pmr="0"/>
+    </retailer>
+</config>

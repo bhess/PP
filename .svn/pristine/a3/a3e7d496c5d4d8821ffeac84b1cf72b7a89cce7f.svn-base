@@ -1,0 +1,152 @@
+package clonedetection.classification;
+
+import clonedetection.results.CheckedResults;
+import clonedetection.results.Results;
+
+public class EvidenceCollectionTest implements CloneClassification {
+
+	private static final String TYPE = "EvidenceCollectionTest"; 
+	
+	@Override
+	public double getMaxThreshold() {
+		return max;
+	}
+
+	@Override
+	public double getMinThreshold() {
+		return min;
+	}
+
+	@Override
+	public int getMode() {
+		return LESS_OR_EQUAL;
+	}
+
+	@Override
+	public String getName() {
+		return TYPE;
+	}
+
+	/**
+	 * the result is the number of evidence is collected
+	 * 1 -> no evidence
+	 * x > 1 -> x-1 evidence collected
+	 */
+	@Override
+	public double isClone(float pmr, Results results) {
+		CheckedResults cr = results.getCheckedResults();
+		// initially there's no evidence -> 1
+		int evidence = 1;
+		for (int i = 0; i < cr.resultsRule.length; ++i) {			
+			if (cr.resultsRule[i] == CheckedResults.AINAIN) {
+				// evidence: next failure with AOUT
+				if (isEvidence(i, results.location[i], results, cr)) {
+					++evidence;
+				}
+			} else if (cr.resultsRule[i] == CheckedResults.AINBIN) {
+				// evidence: next failure with AOUT or BOUT
+				if (isEvidence(i, results.location[i], results.location[i+1], results, cr)) {
+					++evidence;
+				}
+			} else if (cr.resultsRule[i] == CheckedResults.AINBOUT) {
+				if (isEvidence(i, results.location[i], results, cr)) {
+					++evidence;
+				}
+			} else if (cr.resultsRule[i] == CheckedResults.AOUTAIN) {
+				if (isEvidence(i, results.location[i+1], results, cr)) {
+					++evidence;
+				}
+			}
+			/**
+			 * in the Cases AOUT-AOUT and AOUT-BOUT,
+			 * we can't collect any evidence
+			 * so we can collect evidence in 4 out of 6 modes
+			 * of failure 
+			 */
+		}
+			/*
+			switch (cr.resultsRule[i]) {
+				case CheckedResults.AINAIN: {
+					// evidence: next failure with AOUT
+					a = results.location[i];
+					if (isEvidence(i, a, results, cr)) {
+						++evidence;
+					}
+					break;
+				}
+				case CheckedResults.AINBIN: {
+					// evidence: next failure with AOUT or BOUT
+					a = results.location[i];
+					b = results.location[i+1];
+					if (isEvidence(i, a, b, results, cr)) {
+						++evidence;
+					}
+					break;
+				}
+				case CheckedResults.AINBOUT: {
+					a = results.location[i];
+					if (isEvidence(i, a, results, cr)) {
+						++evidence;
+					}
+					break;
+				}
+				case CheckedResults.AOUTAIN: {
+					a = results.location[i+1];
+					if (isEvidence(i, a, results, cr)) {
+						++evidence;
+					}
+					break;
+				}
+				**
+				 * in the Cases AOUT-AOUT and AOUT-BOUT,
+				 * we can't collect any evidence
+				 * so we can collect evidence in 4 out of 6 modes
+				 * of failure 
+				 *
+			}
+			
+		}*/
+		
+		if (evidence < min) min = evidence;
+		if (evidence > max) max = evidence;
+		
+		return evidence;
+	}
+	
+	private int min = Integer.MAX_VALUE, max = Integer.MIN_VALUE;
+	
+	private boolean isEvidence(int i, String a, Results results, CheckedResults cr) {
+		for (int j = i + 1; j < cr.results.length; ++j) {
+			if (cr.results[j]) {
+				if (
+				( (results.trace[j].equals("OUT") && results.location[j].equals(a)) ||
+				  (results.trace[j+1].equals("OUT") && results.location[j+1].equals(a)) ) ) {
+					return true;
+				}// else return false;
+				
+			}
+		}
+		return false;
+	}
+	
+	private boolean isEvidence(int i, String a, String b, Results results, CheckedResults cr) {
+		for (int j = i + 1; j < cr.results.length; ++j) {
+			if (cr.results[j]) {
+				if (
+				( (results.trace[j].equals("OUT") && results.location[j].equals(a)) ||
+				  (results.trace[j+1].equals("OUT") && results.location[j+1].equals(a)) || 
+				  (results.trace[j].equals("OUT") && results.location[j].equals(b)) ||
+				  (results.trace[j+1].equals("OUT") && results.location[j+1].equals(b)) ) ) {
+					return true;
+				}// else return false;
+			}
+		}
+		return false;
+	}
+
+	@Override
+	public boolean isClone(double threshold, double isClone) {
+		return threshold <= isClone;
+	}
+
+}

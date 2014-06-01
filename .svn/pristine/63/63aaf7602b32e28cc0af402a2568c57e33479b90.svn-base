@@ -1,0 +1,628 @@
+package userinterface;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Observer;
+
+import javax.swing.SwingWorker;
+
+import clonedetection.classification.SerializableRawResults;
+
+
+import evaluation.OutputAnalysis;
+import evaluation.PlotDataProducer;
+
+import simulation.Simulator;
+import simulation.TracesAnalyzer;
+import simulation.data.ConfigurationDataXML;
+import simulation.data.ConfigurationSource;
+import simulation.observer.PropertySetter;
+import simulation.utilities.DBConnection;
+import simulation.utilities.Logging;
+
+/**
+ * @author bhess
+ * 
+ * Main class for the simulator
+ *
+ */
+public class SimulatorMain implements SimulationController {
+	
+	/**
+	 * The number of repetitions per simulation
+	 */
+	public static int REPETITIONS = 10;
+	
+	/**
+	 * The number of threads the simulation/detection should run
+	 */
+	public static int NUM_THREADS = 1;
+	
+	/**
+	 * should there be additional (DEBUG) output
+	 * during simulation/detection
+	 */
+	public static boolean VERBOSE = false;
+	
+	/**
+	 * After simulation (if there is even some simulation),
+	 * should the detection be started automatically?
+	 */
+	public static boolean AUTOSTART_DETECTION = false;
+	
+	/**
+	 * True if there should be a simulation
+	 */
+	public static boolean SIMULATE = true;
+	
+	/**
+	 * True if the simulation results should be serialized
+	 * to some file
+	 */
+	public static boolean SERIALIZE = false;
+	
+	/**
+	 * Path to the serialized data
+	 */
+	public static String SERIALIZE_PATH = "";
+	
+	/**
+	 * true if there should be only clone detection
+	 * but no simulation
+	 */
+	public static boolean DETECTION_ONLY = false;
+	
+	/**
+	 * Path of the serialized data if there is only detection
+	 */
+	public static String DETETION_ONLY_PATH = "";
+	
+	/**
+	 * the tasks (threads) where the simulations/detections
+	 * will run
+	 */
+    private Task[] task;
+    
+    /**
+     * array that inform which tasks are already done with their
+     * work
+     */
+    private boolean[] done;
+
+    /**
+     * the files that are used for simulation/detection
+     */
+    private File[] files = null;
+    
+    /**
+     * the names for the simulations/detections
+     */
+    private String[] names;
+    
+    /**
+     * the ID of the name of the current simulation
+     */
+    private int currentNameID = -1;
+    
+    /**
+     * the total progress of the simulation/detection
+     */
+    private int totalProgress = 0;
+    
+    /**
+     * Array that shows how many repetitions are already
+     * done in the different tasks
+     */
+    private int[] completed;
+    
+    /**
+     * list of Views for this simulation
+     */
+    private List<SimulationView> views;
+    
+    /**
+     * Initializing the simulator/detector
+     */
+    public SimulatorMain() {
+    	views = new LinkedList<SimulationView>();
+    	completed = new int[NUM_THREADS];
+    	done = new boolean[NUM_THREADS];
+    	task = new Task[NUM_THREADS];
+    	for (int i = 0; i < NUM_THREADS; ++i) {
+    		completed[i] = 0;
+    		done[i] = false;
+    	}
+    }
+    
+    /**
+     * gets the next id that has to be scheduled
+     * @return
+     */
+    private synchronized int getNextFileID() {
+    	return (++currentNameID < names.length ? currentNameID : -1);
+    }
+    
+    /**
+     * signalizes that one simulation more is done,
+     * so that the views are informed and the progress
+     * is adjusted
+     */
+    private synchronized void oneSimulationDone() {
+    	++totalProgress;
+    	for (SimulationView v : views) {
+    		v.setTotalProgress(totalProgress);
+    	}
+    }
+    
+    /**
+     * signalizes that all simulations are done
+     */
+    private void allSimulationsDone() {
+		files = null;
+		names = null;
+		currentNameID = -1;
+		totalProgress = 0;	
+    	for (SimulationView v : views) {
+    		v.notifySimulationsDone();
+    	}
+    	//plotData();
+    }
+    
+    /**
+     * signalizes that all clone detections are done
+     */
+    private void allDetectionsDone() {
+    	files = null;
+    	names = null;
+    	currentNameID = -1;
+    	totalProgress = 0;
+    	for (SimulationView v : views) {
+    		v.notifyDetectionsDone();
+    	}
+    }
+    
+    /**
+     * sets the thread to be completed and returns true if all
+     * other threads are also completed
+     * @param thread number of the thread
+     * @return true if everything is completed
+     */
+    private synchronized boolean allDone(int thread) {
+    	done[thread] = true;
+    	boolean result = true;
+    	for (boolean d : done) {
+    		result &= d;
+    	}
+    	return result;
+    }
+	
+
+	/* (non-Javadoc)
+	 * @see userinterface.SimulationController#getNumRepetitions()
+	 */
+	public int getNumRepetitions() {
+		// TODO Auto-generated method stub
+		return REPETITIONS;
+	}
+
+	/* (non-Javadoc)
+	 * @see userinterface.SimulationController#getNumThreads()
+	 */	
+	public int getNumThreads() {
+		// TODO Auto-generated method stub
+		return NUM_THREADS;
+	}
+	
+	/* (non-Javadoc)
+	 * @see userinterface.SimulationController#getNumConfigurations()
+	 */
+	public int getNumConfigurations() {
+		// TODO Auto-generated method stub
+		return names.length;
+	}
+	
+	public void startSimulations() {
+		for (SimulationView v : views) {
+			v.notifySimulationsStarted();
+		}
+		DBConnection.setThreads(NUM_THREADS);
+		//pdp = new PlotDataProducer(names, REPETITIONS);
+		for (int i = 0; i < NUM_THREADS; ++i) {
+			int fileID = getNextFileID();
+			if (fileID == -1) {
+				for (int j = i; j < NUM_THREADS; ++j) {
+					allDone(j);
+				}
+				break;
+			}
+			task[i] = new Task(i, fileID, new SerializableRawResults(REPETITIONS, names[i]),
+					this);
+			task[i].execute();
+		}
+	}
+	
+	/* (non-Javadoc)
+	 * @see userinterface.SimulationController#startDetectionOnly()
+	 */
+	@Override
+	public void startDetectionOnly() {
+		for (SimulationView v : views) {
+			v.notifyDetectionStarted();
+		}
+		for (int i = 0; i < files.length; ++i) {
+			try {
+				SerializableRawResults srr = SerializableRawResults.deserialize(
+						new FileInputStream(files[i]));
+        		Logging.log.info(srr.configurationName + ": detection started...");
+        		for (SimulationView v : views) {
+					v.log("Starting detection for: " + srr.configurationName + "(" + srr.repetitions + " repetitions)");
+				}
+        		new PlotDataProducer(srr, 0);
+				//new PlotDataProducer(srr).produce(0);
+				Logging.log.info(srr.configurationName + ": detection completed!");
+				for (SimulationView v : views) {
+					v.log("Configuration done, data written for: " + srr.configurationName);
+				}
+			} catch (IOException e) {
+				Logging.log.warn(e.getMessage());
+			}
+
+		}
+		allDetectionsDone();
+		
+	}
+	
+	/**
+	 * plots data from given serialized data
+	 */
+	public void plotData(SerializableRawResults s) {
+		
+		try {
+			//new PlotDataProducer(names, 1).produce(taskOutput);
+			Logging.log.info(s.configurationName + ": detection started...");
+			new PlotDataProducer(s, 0);
+			//new PlotDataProducer(s).produce(0);
+			Logging.log.info(s.configurationName + ": detection completed!");
+		} catch (IOException e) {
+			Logging.log.fatal(e.getMessage());
+			System.exit(1);
+		}
+	}
+	
+	/* (non-Javadoc)
+	 * @see userinterface.SimulationController#logInfo(java.lang.String, int)
+	 */
+	public void logInfo(String info, int thread) {
+		// TODO Auto-generated method stub
+		for (SimulationView v : views) {
+			v.log(info, thread);
+		}
+	}
+
+	/* (non-Javadoc)
+	 * @see userinterface.SimulationController#logInfo(java.lang.String)
+	 */
+	public void logInfo(String info) {
+		// TODO Auto-generated method stub
+		logInfo(info, 0);
+	}
+	
+	/* (non-Javadoc)
+	 * @see userinterface.SimulationController#setFiles(java.io.File[], boolean)
+	 */
+	public void setFiles(File[] selectedFiles, boolean append, boolean serializedSimulations) {
+		if (files == null) files = selectedFiles;
+    	else {
+    		File[] tmpfile = files;
+    		files = new File[tmpfile.length + selectedFiles.length];
+    		System.arraycopy(tmpfile, 0, files, 0, tmpfile.length);
+    		System.arraycopy(selectedFiles, 0, files, tmpfile.length, selectedFiles.length);
+    	}
+    	names = new String[files.length];
+    	for (int i = 0; i < files.length; ++i) {
+    		String name = files[i].getName();
+    		name = name.substring(0, name.lastIndexOf('.'));
+    		names[i] = name;
+    	}
+	}
+	
+	/**
+	 * @author bhess
+	 * 
+	 * A Swing Worker thread for a simulation/detection
+	 * See: http://java.sun.com/products/jfc/tsc/articles/threads/threads2.html
+	 * for details on SwingWorker
+	 */
+	public class Task extends SwingWorker<Void, Void> {
+		  
+    	/**
+    	 * initializes task with its task-number
+    	 * taskNumver < NUM_THREADS
+    	 */
+    	public Task(int taskNumber, int fileNumber, SerializableRawResults srr, 
+    			SimulationController controller) {
+    		this.taskNumber = taskNumber;
+    		this.fileNumber = fileNumber;
+    		this.rawResults = srr;
+    		this.controller = controller;
+    	}
+    	
+    	/**
+    	 * taskNumber: if multithreading is enabled this number goes until the specified number
+    	 * 		of threads
+    	 * fileNumber: arrayindex of configuration that has to be simulated
+    	 */
+    	private int taskNumber, fileNumber;
+    	
+    	/**
+    	 * the corresponding results
+    	 */
+    	private SerializableRawResults rawResults;
+    	
+    	/**
+    	 * the controller for the simulation
+    	 */
+    	private SimulationController controller;
+    	
+        /**
+         * Main task. Executed in background thread.
+         */
+        @Override
+        public Void doInBackground() {
+        	
+        	int i = fileNumber;
+        	File f = files[i];
+        	
+        	ConfigurationSource cs = new ConfigurationDataXML(f
+				.getAbsolutePath());
+
+			String name = names[i];
+
+			logInfo("Configuration " + name + " loaded\n", taskNumber);
+			List<Observer> llo = new LinkedList<Observer>();
+			llo.add(new PropertySetter(this));
+			Simulator s = new Simulator(cs, llo, name, taskNumber);
+			rawResults.pMisread = s.config.globalPmr;
+			long max = s.getNumberOfProducts();
+
+			for (SimulationView v : views) {
+				v.setMinMaxProgress(0, (int) max, taskNumber);
+			}
+
+			long avginsc = 0;//s.getAvgTime();
+			logInfo("Estimated time of a product in SC: " + avginsc + "s\n"
+					+ "Simulation running...\n", taskNumber);
+			// taskOutput[taskNumber].append("Simulation running...\n");
+			s.simulate();
+
+			logInfo("Analyze Trace... ", taskNumber);
+			TracesAnalyzer ta = new TracesAnalyzer(names[fileNumber],
+					taskNumber);
+			int comp = completed[taskNumber];
+			rawResults.cloneResults[comp] = ta.getResults();
+			logInfo("completed\n", taskNumber);
+								
+            return null;
+        }
+        
+        /**
+         * Automatically executed by swingworker if thread is done
+         */
+        public void done() {
+        	completed[taskNumber]++;
+        	oneSimulationDone();
+        	nextSim();
+
+        }
+        
+        /**
+         * setting the progress of the simulation to the views
+         * @param progress
+         */
+        public void setProgress2(int progress) {
+        	//double pr = (100.0d / (double)progressBar.getMaximum());
+        	//int pr2 = (int)(pr*(double)progress);
+        	//setProgress(pr2);
+        	for (SimulationView v : views) {
+        		v.setProgress(progress, taskNumber);
+        	}
+        }
+        
+        /**
+         * schedules the next simulation, which is either a repetition
+         * or it gets the filenumber of the next simulation
+         */
+        public void nextSim() {
+        	if (completed[taskNumber] >= REPETITIONS) {
+        		completed[taskNumber] = 0;
+        		configurationDone();
+        		// gets the next file id to simulate...
+        		fileNumber = getNextFileID();
+        		
+        		// no new simulations to do
+        		if (fileNumber == -1) {
+        			logInfo("Simulations completed!\n", taskNumber);        			
+        			if (allDone(taskNumber)) {
+        				allSimulationsDone();
+        			}
+        			return;
+        		} else {
+            		rawResults = new SerializableRawResults(REPETITIONS, names[fileNumber]);
+        		}
+        	} else {
+            	logInfo(((completed[taskNumber]+1) + ". pass started out of "
+            			+ REPETITIONS + "\n"), taskNumber);
+
+        	}
+        	task[taskNumber] = new Task(taskNumber, fileNumber, rawResults, controller);
+        	//task[taskNumber].addPropertyChangeListener(this);
+        	task[taskNumber].execute();
+        }
+        
+        /**
+         * signalize if all repetitions (one config) is done
+         * then serialized the results if SERIALIZE is true
+         * and starts detection if AUTOSTART_DETECTION is true
+         */
+        public void configurationDone() {
+        	OutputAnalysis oa = new OutputAnalysis(names[fileNumber], taskNumber);
+        	oa.analyzeOutput(false);
+        	rawResults.avgEvents = oa.getAvgEvents();
+        	rawResults.avgHops = oa.getAvgHops();
+        	rawResults.avgTimeInSC = oa.getAvgTimeInChain();
+        	
+        	if (SERIALIZE) {
+        		try {
+					OutputStream os = new FileOutputStream(
+							new File(SERIALIZE_PATH + "/" + names[fileNumber] + ".ser.gz"));
+					rawResults.serialize(os);
+					os.close();
+				} catch (Exception e) {
+					Logging.log.warn(e.getMessage());
+				}
+        	}
+        	if (AUTOSTART_DETECTION) {
+        		try {
+        			new PlotDataProducer(rawResults, taskNumber);
+        			//new PlotDataProducer(rawResults).produce(taskNumber);
+        		} catch (IOException e) {
+        			Logging.log.warn(e.getMessage());
+        		}
+        	}
+        }
+
+    }
+	
+	
+	public static void main(String[] args) {
+        //Schedule a job for the event-dispatching thread:
+        //creating and showing this application's GUI.
+    	String loc = "";
+    	boolean consoleUI = false;
+    	boolean log = false;
+		
+    	for (int i = 0; i < args.length; ++i) {
+    		if (args[i].equals("-help")) {
+    			System.out.println("Supply Chain Simulator/Clone Detector");
+    			System.out.println("-------------------------------------");
+    			System.out.println("Options:");
+    			System.out.println("   -c automatically start clonedetection after simulation");
+    			System.out.println("   -detection_only </path/to/serial>");
+    			System.out.println("   -d <DB location>");
+    			System.out.println("   -f </loc/to/files> location to files with configs");
+    			System.out.println("   -l </loc/to/log/file.log>");
+    			System.out.println("   -n <number_of_threads>");
+    			System.out.println("   -nogui");
+    			System.out.println("   -r <number_of_repetitions>");
+    			System.out.println("   -verbose");
+    			System.out.println("   -v (prints version)");
+    			System.out.println("   -serialize </path>");
+    			System.out.println("Simulations are I/O intensive, " +
+    					"performance can be improved by writing the DB to a ramdisk\n" +
+    					"On linux: 'mount -t tmpfs none </dir/to/db/myDB>' (uses half of available RAM)");
+    			return;
+    		} else if (args[i].equals("-v")) {
+    			System.out.println("Supply Chain Simulator/Clone Detector");
+    			System.out.println("-------------------------------------");
+    			System.out.println("Copyright Basil Hess, ETH Zürich, 2009");
+    			System.out.println("SVN Build");
+    			return;
+    		} else if (args[i].equals("-n")) {
+    			if (args.length < i) {
+    				System.out.println("Please specify number_of_threads");
+    				return;
+    			} else {
+    				NUM_THREADS = Integer.parseInt(args[++i]);
+    			}
+    		} else if (args[i].equals("-r")) {
+    			if (args.length < i) {
+    				System.out.println("Please specify number_of_repetitions");
+    				return;
+    			} else {
+    				REPETITIONS = Integer.parseInt(args[++i]);
+    			}
+    		} else if (args[i].equals("-verbose")) {
+    			Logging.setConsoleLogger();
+    		} else if (args[i].equals("-d")) {
+    			if (args.length < i) {
+    				System.out.println("Please Specify <DB Location>");
+    				return;
+    			} else {
+    				DBConnection.setDBLocation(args[++i]);
+    			}
+    		} else if (args[i].equals("-l")) {
+    			if (args.length < i) {
+    				System.out.println("Please Specify <Log-file>");
+    				return;
+    			} else {
+    				try {
+						Logging.setFileAppender(args[++i]);
+						log = true;
+					} catch (IOException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+						System.exit(1);
+					}
+    			}
+    		} else if (args[i].equals("-c")) {
+    			AUTOSTART_DETECTION = true;
+    		} else if (args[i].equals("-nogui")) {
+    			//AUTOSTART_DETECTION = true;
+    			consoleUI = true;
+    		} else if (args[i].equals("-f")) {
+    			if (args.length < i) {
+    				System.out.println("Please specify files with -f <...>");
+    				return;
+    			} else {
+    				loc = args[++i];
+    			}
+    		} else if (args[i].equals("-serialize")) {
+    			if (args.length < i) {
+    				System.out.println("Please specify location where to write the serialized simulations");
+    				return;
+    			} else {
+    				SERIALIZE_PATH = args[++i];
+    				SERIALIZE = true;
+    			}
+    		} else if (args[i].equals("-detection_only")) {
+    			if (args.length < i) {
+    				System.err.println("Please specify location where serialized objects are stored");
+    				return;
+    			} else {
+    				DETECTION_ONLY = true;
+    				AUTOSTART_DETECTION = false;
+    				DETETION_ONLY_PATH = args[++i];
+    			}
+    		}
+    	}
+    	
+    	// default file logger...
+    	if (!log) {
+			try {
+				Logging.setFileAppender("sim.log");
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+    	}
+    	
+    	SimulatorMain sim = new SimulatorMain();
+    	if (DETECTION_ONLY) {
+    		sim.views.add(new ConsoleUI(sim, DETETION_ONLY_PATH, false, true));
+    	} else {
+    		if (consoleUI) {
+    			sim.views.add(new ConsoleUI(sim, loc, true, false));
+    		} else {
+    			sim.views.add(SimpleGUI.getInstance(sim));
+    		}
+    	}
+    	for (SimulationView s : sim.views) s.start();
+    	
+    }
+
+}

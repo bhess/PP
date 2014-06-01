@@ -1,0 +1,33 @@
+package simulation.entities;
+
+/**
+ * @author bhess
+ * 
+ * Objects of this class represent a Wholesaler
+ * A Wholesaler receives products from other distributors
+ * and redistributes them to other recipients
+ *
+ */
+public class Wholesaler extends Distributor {
+	
+	/**
+	 * @param numberOfChannels
+	 * @param randSeed
+	 * @param misreadProb
+	 * @param eaveOUT
+	 * @param eaveIN
+	 */
+	public void init(String name, int numberOfChannels, long randSeed,
+			float misreadProb, long iolt, long ioltStd) {
+		super.init(name, numberOfChannels, randSeed, misreadProb, iolt, ioltStd);
+	}
+
+
+	/* (non-Javadoc)
+	 * @see simulation.entities.Partner#getType()
+	 */
+	public int getType() {
+		return WHOLESALER;
+	}
+
+}

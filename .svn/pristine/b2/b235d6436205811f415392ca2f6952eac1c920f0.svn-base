@@ -1,0 +1,136 @@
+package clonedetection.results;
+
+/**
+ * @author bhess
+ * 
+ * Class used to check rules from a trace of one tag
+ */
+public class CheckedResults {
+	
+	/**
+	 * Initialize with the results from one tag
+	 * @param toCheck
+	 * The Results of one tag (trace) that has to be verified
+	 */
+	public CheckedResults(Results toCheck) {
+		this.results = new boolean[toCheck.size - 1];
+		this.resultsRule = new int[toCheck.size - 1];
+		checkRules(toCheck.trace, toCheck.location);
+	}
+	
+	/*
+	 * the verified rules
+	 * the result is 'false' if rule failed
+	 * the result is 'true' if rule passed
+	 */
+	public boolean[] results;
+	
+	public static final int AINAIN = 1, AINAOUT = 2, AINBIN = 3,
+		AINBOUT = 4, AOUTAIN = 5, AOUTAOUT = 6, AOUTBIN = 7,
+		AOUTBOUT = 8;
+	/*
+	 * Stores the Rule number for the check:
+	 * 1: a_in - a_in   (F, Pmr^3)
+	 * 2: a_in - a_out  (T)
+	 * 3: a_in - b_in   (F, Pmr)
+	 * 4: a_in - b_out  (F, Pmr^2)
+	 * 5: a_out - a_in  (F, Pmr^2)
+	 * 6: a_out - a_out (F, Pmr^3)
+	 * 7: a_out - b_in  (T)
+	 * 8: a_out - b_out (F, Pmr) 
+	 */
+	public int[] resultsRule;
+	
+	/**
+	 * returns how many additional misreads were happening
+	 * (hypothesis: failure due misreads)
+	 * with a given rule failure
+	 * @param index
+	 * @return
+	 */
+	public int getAdditionalMisreads(int index) {
+		int i = resultsRule[index];
+		int res = 0;
+		if (i == AINAIN || i == AOUTAOUT) {
+			res = 3;
+		} else if (i == AINBOUT || i == AOUTAIN) {
+			res = 2;
+		} else if (i == AINBIN || i == AOUTBOUT) {
+			res = 1;
+		}
+		return res;
+	}
+	
+	public int getOriginalTraceLength() {
+		return resultsRule.length + 1 + getFailed();
+	}
+	
+	public int getFailed() {
+		int res = 0;
+		for (int i = 0; i < resultsRule.length; ++i) {
+			res += getAdditionalMisreads(i);
+		}
+		return res;
+	}
+	
+	public int[] getFailedArray() {
+		int[] res = new int[4];
+		for (int i = 0; i < resultsRule.length; ++i) {
+			res[getAdditionalMisreads(i)]++;
+		}
+		return res;
+	}
+	
+	/**
+	 * check the two specified rules:
+	 *  Rule 1: Event 1 = P_i(IN), Event 2 = P_i(OUT)
+	 *  Rule 2: Event 1 = P_i(OUT), Event 2 = P_j(IN), i /= j
+	 * 
+	 * @param trace
+	 * IN and OUT events
+	 * @param location
+	 * The corresponding locations of the events
+	 */
+	private void checkRules(String[] trace, String[] location) {
+		
+		for (int i = 0; i < trace.length - 1; ++i) {
+			if (trace[i].equals("IN")) {
+				// Rule 1: Event 1 = P_i(IN), Event 2 = P_i(OUT)
+				results[i] = trace[i + 1].equals("OUT") && location[i].equals(location[i + 1]);
+				
+				if (location[i].equals(location[i+1])) {
+					if (trace[i+1].equals("IN")) {
+						resultsRule[i] = 1;
+					} else {
+						resultsRule[i] = 2;
+					}
+				} else {
+					if (trace[i+1].equals("IN")) {
+						resultsRule[i] = 3;
+					} else {
+						resultsRule[i] = 4;
+					}
+				}
+			} else {
+				// Rule 2: Event 1 = P_i(OUT), Event 2 = P_j(IN), i /= j
+				results[i] = trace[i + 1].equals("IN") && !(location[i].equals(location[i + 1]));
+				
+				if (location[i].equals(location[i+1])) {
+					if (trace[i+1].equals("IN")) {
+						resultsRule[i] = 5;
+					} else {
+						resultsRule[i] = 6;
+					}
+				} else {
+					if (trace[i+1].equals("IN")) {
+						resultsRule[i] = 7;
+					} else {
+						resultsRule[i] = 8;
+					}
+				}
+				
+			}
+		}
+	}
+
+}
